@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">GpxPlayer</string>
+    <string name="title">GPX Player</string>
+    <string name="description">Mock location provider for GPX Player Desktop</string>
+</resources>
