@@ -88,7 +88,7 @@ object MockLocationProvider {
                     mockLocation
                 )
                 noPermissionActionSent = false
-                setMockLocationHandler.postDelayed(repeatRunnable, 1000)
+                //setMockLocationHandler.postDelayed(repeatRunnable, 1000)
             } catch (e: SecurityException) {
                 if (!noPermissionActionSent) {
                     val startMainActivityIntent =
