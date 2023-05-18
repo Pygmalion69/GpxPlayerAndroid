@@ -11,6 +11,7 @@ class MockLocationReceiver : BroadcastReceiver() {
 
     companion object {
         val TAG = MockLocationReceiver::class.simpleName
+        const val KEY_SPEED = "speed"
     }
 
     override fun onReceive(context: Context?, intent: Intent?) {
@@ -27,6 +28,8 @@ class MockLocationReceiver : BroadcastReceiver() {
                         "geo" -> {
                             MockLocationProvider.setContext(context.applicationContext)
                             MockLocationProvider.setMockGeoPoint(getGeoPointDtoFromIntent(intent))
+                            val speedKmh = intent.getIntExtra(KEY_SPEED, 3)
+                            MockLocationProvider.setMockSpeedKmh(speedKmh)
                             MockLocationProvider.setMockLocation()
                         }
                     }
