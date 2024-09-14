@@ -24,29 +24,27 @@ class MainActivity : AppCompatActivity() {
 
     override fun onNewIntent(intent: Intent?) {
         super.onNewIntent(intent)
-        if (intent != null) {
-            handleIntent(intent)
+        intent?.let {
+            handleIntent(it)
         }
     }
 
     private fun handleIntent(intent: Intent) {
-        if (intent.action != null && intent.action.equals(ACTION_NO_PERMISSION) && !noPermissionAlertShown) {
+        if (intent.action == ACTION_NO_PERMISSION && !noPermissionAlertShown) {
             showNoPermissionAlert()
         }
-
     }
 
     private fun showNoPermissionAlert() {
         val builder = AlertDialog.Builder(this)
-        builder.setTitle("GPS mocking permission required")
-            .setMessage("Set GpxPlayer as the mock location app in the Developer Options")
-            .setPositiveButton("OK") { _, _ ->
+        builder.setTitle(R.string.gps_mocking_permission_title)
+            .setMessage(R.string.gps_mocking_permission_message)
+            .setPositiveButton(R.string.ok) { _, _ ->
                 // Open Android Developer Options
-                val intent = Intent()
-                intent.action = Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS
+                val intent = Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS)
                 startActivity(intent)
             }
-            .setNegativeButton("Cancel") { _, _ ->
+            .setNegativeButton(R.string.cancel) { _, _ ->
                 finish()
             }
             .create()

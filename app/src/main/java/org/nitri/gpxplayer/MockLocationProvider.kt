@@ -18,6 +18,8 @@ import kotlin.math.sqrt
 
 object MockLocationProvider {
 
+    private val TAG = MockLocationProvider::class.simpleName
+    
     private var prevMockTime: Long? = null
     private var contextRef: WeakReference<Context>? = null
 
@@ -59,6 +61,7 @@ object MockLocationProvider {
             }
             setMockLocationHandler.removeCallbacksAndMessages(null)
             try {
+
                 locationManager?.addTestProvider(
                     LocationManager.GPS_PROVIDER,
                     false,
@@ -72,6 +75,21 @@ object MockLocationProvider {
                     ProviderProperties.ACCURACY_FINE
                 )
                 locationManager?.setTestProviderEnabled(LocationManager.GPS_PROVIDER, true)
+
+                locationManager?.addTestProvider(
+                    LocationManager.NETWORK_PROVIDER,
+                    false,
+                    false,
+                    false,
+                    false,
+                    true,
+                    true,
+                    true,
+                    ProviderProperties.POWER_USAGE_LOW,
+                    ProviderProperties.ACCURACY_FINE
+                )
+                locationManager?.setTestProviderEnabled(LocationManager.NETWORK_PROVIDER, false)
+
                 val mockLocation = Location(LocationManager.GPS_PROVIDER)
                 mockLocation.latitude = mockGeoPoint!!.latitude
                 mockLocation.longitude = mockGeoPoint!!.longitude
@@ -108,8 +126,14 @@ object MockLocationProvider {
                     LocationManager.GPS_PROVIDER,
                     mockLocation
                 )
+                locationManager?.setTestProviderLocation(
+                    LocationManager.NETWORK_PROVIDER,
+                    mockLocation
+                )
                 noPermissionActionSent = false
-                //setMockLocationHandler.postDelayed(repeatRunnable, 1000)
+                if (mockLocation.speed < 1) {
+                    setMockLocationHandler.postDelayed(repeatRunnable, 500)
+                }
             } catch (e: SecurityException) {
                 if (!noPermissionActionSent) {
                     val startMainActivityIntent =
@@ -140,15 +164,15 @@ object MockLocationProvider {
         return (distance / (deltaTimeMillis / 1000f)).toFloat()
     }
     private fun calculateDistance(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
-        val R = 6371.0 // Earth's radius in km
+        val r = 6371.0 // Earth's radius in km
         val dLat = Math.toRadians(lat2 - lat1)
         val dLon = Math.toRadians(lon2 - lon1)
         val a = sin(dLat / 2) * sin(dLat / 2) +
                 cos(Math.toRadians(lat1)) * cos(Math.toRadians(lat2)) *
                 sin(dLon / 2) * sin(dLon / 2)
         val c = 2 * atan2(sqrt(a), sqrt(1 - a))
-        val distance = R * c * 1000 // meters
-        println("distance == $distance")
+        val distance = r * c * 1000 // meters
+        Log.d(TAG, "distance == $distance")
         return distance
     }
 }

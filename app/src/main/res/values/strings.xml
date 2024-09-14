@@ -2,4 +2,9 @@
     <string name="app_name">GpxPlayer</string>
     <string name="title">GPX Player</string>
     <string name="description">Mock location provider for GPX Player Desktop</string>
+
+    <string name="gps_mocking_permission_title">GPS mocking permission required</string>
+    <string name="gps_mocking_permission_message">Set GpxPlayer as the mock location app in the Developer Options</string>
+    <string name="ok">OK</string>
+    <string name="cancel">Cancel</string>
 </resources>
