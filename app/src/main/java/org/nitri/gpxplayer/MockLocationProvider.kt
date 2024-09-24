@@ -1,10 +1,12 @@
 package org.nitri.gpxplayer
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import android.location.Location
 import android.location.LocationManager
 import android.location.provider.ProviderProperties
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
@@ -30,10 +32,10 @@ object MockLocationProvider {
     private var prevMockGeoPoint: GeoPointDto? = null
     private var locationManager: LocationManager? = null
 
-    private var repeatRunnable: Runnable = Runnable {
-        run {
+    private val repeatRunnable: Runnable = object : Runnable {
+        override fun run() {
             setMockLocation()
-            setMockLocationHandler.postDelayed(repeatRunnable, 1000)
+            setMockLocationHandler.postDelayed(this, 1000)
         }
     }
 
@@ -52,98 +54,99 @@ object MockLocationProvider {
     }
 
     fun setMockLocation() {
+        val context = contextRef?.get() ?: return
+        val locationManager = locationManager ?: run {
+            context.getSystemService(AppCompatActivity.LOCATION_SERVICE) as LocationManager
+        }
 
-        if (mockGeoPoint != null) {
-
-            if (locationManager == null) {
-                locationManager =
-                    contextRef?.get()?.getSystemService(AppCompatActivity.LOCATION_SERVICE) as LocationManager
-            }
-            setMockLocationHandler.removeCallbacksAndMessages(null)
+        mockGeoPoint?.let { geoPoint ->
             try {
+                setupLocationProviders(locationManager)
 
-                locationManager?.addTestProvider(
-                    LocationManager.GPS_PROVIDER,
-                    false,
-                    false,
-                    false,
-                    false,
-                    true,
-                    true,
-                    true,
-                    ProviderProperties.POWER_USAGE_LOW,
-                    ProviderProperties.ACCURACY_FINE
-                )
-                locationManager?.setTestProviderEnabled(LocationManager.GPS_PROVIDER, true)
+                val mockLocation = createMockLocation(geoPoint)
+                locationManager.setTestProviderLocation(LocationManager.GPS_PROVIDER, mockLocation)
+                locationManager.setTestProviderLocation(LocationManager.NETWORK_PROVIDER, mockLocation)
 
-                locationManager?.addTestProvider(
-                    LocationManager.NETWORK_PROVIDER,
-                    false,
-                    false,
-                    false,
-                    false,
-                    true,
-                    true,
-                    true,
-                    ProviderProperties.POWER_USAGE_LOW,
-                    ProviderProperties.ACCURACY_FINE
-                )
-                locationManager?.setTestProviderEnabled(LocationManager.NETWORK_PROVIDER, false)
-
-                val mockLocation = Location(LocationManager.GPS_PROVIDER)
-                mockLocation.latitude = mockGeoPoint!!.latitude
-                mockLocation.longitude = mockGeoPoint!!.longitude
-                Log.d(MockLocationReceiver.TAG, "mock: " + mockGeoPoint!!.latitude + ", " + mockGeoPoint!!.longitude)
-                mockLocation.altitude = 10.0
-                mockLocation.accuracy = 5.0F
-                mockLocation.time = System.currentTimeMillis()
-                mockLocation.elapsedRealtimeNanos = System.nanoTime()
-                if (mockSpeedKmh != null)
-                    mockLocation.speed = (mockSpeedKmh!! / 3.6f)
-                if (prevMockGeoPoint != null) {
-                    Log.d(MockLocationReceiver.TAG, "prev: " + prevMockGeoPoint!!.latitude + ", " + prevMockGeoPoint!!.longitude)
-                    mockLocation.bearing = calculateBearing(
-                        prevMockGeoPoint!!.latitude, prevMockGeoPoint!!.longitude,
-                        mockLocation.latitude, mockLocation.longitude
-                    )
-                    if ((mockSpeedKmh == null || mockSpeedKmh == 0) && prevMockTime != null) {
-                        // no speed received -> calculate
-                        mockLocation.speed = calculateSpeed(
-                            prevMockGeoPoint!!.latitude,
-                            prevMockGeoPoint!!.longitude,
-                            mockLocation.latitude,
-                            mockLocation.longitude,
-                            mockLocation.time - prevMockTime!!
-                        )
-                    }
-                } else {
-                    Log.d(MockLocationReceiver.TAG, "prev: null")
-                }
-                prevMockTime = mockLocation.time
-                Log.d(MockLocationReceiver.TAG, "bearing: " + mockLocation.bearing)
-                Log.d(MockLocationReceiver.TAG, "speed km/h: " + mockLocation.speed * 3.6)
-                locationManager?.setTestProviderLocation(
-                    LocationManager.GPS_PROVIDER,
-                    mockLocation
-                )
-                locationManager?.setTestProviderLocation(
-                    LocationManager.NETWORK_PROVIDER,
-                    mockLocation
-                )
                 noPermissionActionSent = false
                 if (mockLocation.speed < 1) {
                     setMockLocationHandler.postDelayed(repeatRunnable, 500)
                 }
             } catch (e: SecurityException) {
-                if (!noPermissionActionSent) {
-                    val startMainActivityIntent =
-                        Intent(contextRef?.get()?.applicationContext, MainActivity::class.java)
-                    startMainActivityIntent.action = MainActivity.ACTION_NO_PERMISSION
-                    startMainActivityIntent.flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
-                    contextRef?.get()?.applicationContext?.startActivity(startMainActivityIntent)
-                    noPermissionActionSent = true
+                handleSecurityException(context)
+            }
+        }
+    }
+
+    @SuppressLint("WrongConstant") // No ProviderProperties below API 31, int values passed
+    private fun setupLocationProviders(locationManager: LocationManager) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) { // API level 31
+            // Use new ProviderProperties constants
+            locationManager.addTestProvider(
+                LocationManager.GPS_PROVIDER,
+                false, false, false, false, true, true, true,
+                ProviderProperties.POWER_USAGE_LOW, ProviderProperties.ACCURACY_FINE
+            )
+            locationManager.setTestProviderEnabled(LocationManager.GPS_PROVIDER, true)
+
+            locationManager.addTestProvider(
+                LocationManager.NETWORK_PROVIDER,
+                false, false, false, false, true, true, true,
+                ProviderProperties.POWER_USAGE_LOW, ProviderProperties.ACCURACY_FINE
+            )
+            locationManager.setTestProviderEnabled(LocationManager.NETWORK_PROVIDER, false)
+        } else {
+            // API level 30 or lower
+            locationManager.addTestProvider(
+                LocationManager.GPS_PROVIDER,
+                false, false, false, false, true, true, true,
+                1, 1
+            )
+            locationManager.setTestProviderEnabled(LocationManager.GPS_PROVIDER, true)
+
+            locationManager.addTestProvider(
+                LocationManager.NETWORK_PROVIDER,
+                false, false, false, false, true, true, true,
+                1, 1
+            )
+            locationManager.setTestProviderEnabled(LocationManager.NETWORK_PROVIDER, false)
+        }
+    }
+
+    private fun createMockLocation(geoPoint: GeoPointDto): Location {
+        return Location(LocationManager.GPS_PROVIDER).apply {
+            latitude = geoPoint.latitude
+            longitude = geoPoint.longitude
+            altitude = 10.0
+            accuracy = 5.0F
+            time = System.currentTimeMillis()
+            elapsedRealtimeNanos = System.nanoTime()
+            speed = mockSpeedKmh?.div(3.6f) ?: 0f
+            prevMockGeoPoint?.let { prevGeoPoint ->
+                bearing = calculateBearing(prevGeoPoint.latitude, prevGeoPoint.longitude, latitude, longitude)
+                prevMockTime?.let { prevTime ->
+                    if (mockSpeedKmh == null || mockSpeedKmh == 0) {
+                        speed = calculateSpeed(
+                            prevGeoPoint.latitude,
+                            prevGeoPoint.longitude,
+                            latitude,
+                            longitude,
+                            time - prevTime ?: 0
+                        )
+                    }
                 }
             }
+            prevMockTime = time
+        }
+    }
+
+    private fun handleSecurityException(context: Context) {
+        if (!noPermissionActionSent) {
+            val startMainActivityIntent = Intent(context, MainActivity::class.java).apply {
+                action = MainActivity.ACTION_NO_PERMISSION
+                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
+            }
+            context.startActivity(startMainActivityIntent)
+            noPermissionActionSent = true
         }
     }
 

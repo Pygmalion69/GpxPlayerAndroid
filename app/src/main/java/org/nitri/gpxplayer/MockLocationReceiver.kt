@@ -15,38 +15,21 @@ class MockLocationReceiver : BroadcastReceiver() {
     }
 
     override fun onReceive(context: Context?, intent: Intent?) {
-
-        if (context != null && intent!!.action.equals("org.nitri.gpxplayer.ACTION_SET_LOCATION")) {
-
-            MockLocationProvider.setContext(context)
-
-            if (intent.data != null) {
-
-                val scheme = intent.data!!.scheme
-                if (scheme != null) {
-                    when (scheme) {
-                        "geo" -> {
-                            MockLocationProvider.setContext(context.applicationContext)
-                            MockLocationProvider.setMockGeoPoint(getGeoPointDtoFromIntent(intent))
-                            val speedKmh = intent.getIntExtra(KEY_SPEED, 3)
-                            MockLocationProvider.setMockSpeedKmh(speedKmh)
-                            MockLocationProvider.setMockLocation()
-                        }
-                    }
-                }
+        context?.applicationContext?.let { appContext ->
+            intent?.takeIf { it.action == "org.nitri.gpxplayer.ACTION_SET_LOCATION" }?.data?.scheme?.takeIf { it == "geo" }?.let {
+                MockLocationProvider.setContext(appContext)
+                MockLocationProvider.setMockGeoPoint(getGeoPointDtoFromIntent(intent))
+                val speedKmh = intent.getIntExtra(KEY_SPEED, 3)  // Default to 3 if not present
+                MockLocationProvider.setMockSpeedKmh(speedKmh)
+                MockLocationProvider.setMockLocation()
             }
         }
     }
 
     private fun getGeoPointDtoFromIntent(intent: Intent?): GeoPointDto? {
-        val uri = intent?.data
-        val uriAsString = uri?.toString()
-        var pointFromIntent: GeoPointDto? = null
-        if (uriAsString != null) {
-            val parser = GeoUri(GeoUri.OPT_PARSE_INFER_MISSING)
-            pointFromIntent = parser.fromUri(uriAsString, GeoPointDto())
+        return intent?.data?.toString()?.let { uriString ->
+            GeoUri(GeoUri.OPT_PARSE_INFER_MISSING).fromUri(uriString, GeoPointDto())
         }
-        return pointFromIntent
     }
 
 }
