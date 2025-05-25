@@ -6,7 +6,6 @@ import android.content.Intent
 import de.k3b.geo.api.GeoPointDto
 import de.k3b.geo.io.GeoUri
 
-
 class MockLocationReceiver : BroadcastReceiver() {
 
     companion object {
