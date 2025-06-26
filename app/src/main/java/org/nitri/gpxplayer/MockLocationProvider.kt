@@ -143,7 +143,7 @@ object MockLocationProvider {
         if (!noPermissionActionSent) {
             val startMainActivityIntent = Intent(context, MainActivity::class.java).apply {
                 action = MainActivity.ACTION_NO_PERMISSION
-                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
             }
             context.startActivity(startMainActivityIntent)
             noPermissionActionSent = true
