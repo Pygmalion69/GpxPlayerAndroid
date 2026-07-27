@@ -3,6 +3,7 @@ package org.nitri.gpxplayer
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.util.Log
 import de.k3b.geo.api.GeoPointDto
 import de.k3b.geo.io.GeoUri
 
@@ -16,9 +17,12 @@ class MockLocationReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context?, intent: Intent?) {
         context?.applicationContext?.let { appContext ->
             intent?.takeIf { it.action == "org.nitri.gpxplayer.ACTION_SET_LOCATION" }?.data?.scheme?.takeIf { it == "geo" }?.let {
+                val geoPointDto = getGeoPointDtoFromIntent(intent)
                 MockLocationProvider.setContext(appContext)
-                MockLocationProvider.setMockGeoPoint(getGeoPointDtoFromIntent(intent))
+                MockLocationProvider.setMockGeoPoint(geoPointDto)
                 val speedKmh = intent.getIntExtra(KEY_SPEED, 3)  // Default to 3 if not present
+
+                Log.d(TAG, "Received mock location: ${geoPointDto?.latitude}, ${geoPointDto?.longitude} at $speedKmh km/h")
                 MockLocationProvider.setMockSpeedKmh(speedKmh)
                 MockLocationProvider.setMockLocation()
             }

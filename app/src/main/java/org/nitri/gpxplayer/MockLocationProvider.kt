@@ -10,7 +10,6 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
-import androidx.appcompat.app.AppCompatActivity
 import de.k3b.geo.api.GeoPointDto
 import java.lang.ref.WeakReference
 import kotlin.math.atan2
@@ -32,21 +31,21 @@ object MockLocationProvider {
     private var prevMockGeoPoint: GeoPointDto? = null
     private var locationManager: LocationManager? = null
 
-    private val repeatRunnable: Runnable = object : Runnable {
-        override fun run() {
-            setMockLocation()
-            setMockLocationHandler.postDelayed(this, 1000)
-        }
+    private val repeatRunnable = Runnable {
+        setMockLocation()
     }
 
     fun setContext(context: Context) {
-        contextRef = WeakReference(context)
+        if (contextRef?.get() != context) {
+            contextRef = WeakReference(context)
+        }
     }
 
     fun setMockGeoPoint(geoPoint: GeoPointDto?) {
-        //prevMockGeoPoint = mockGeoPoint?.let { GeoPointDto(it.latitude, it.longitude, 0) }
-        prevMockGeoPoint = mockGeoPoint
-        mockGeoPoint = geoPoint
+        if (geoPoint != mockGeoPoint) {
+            prevMockGeoPoint = mockGeoPoint
+            mockGeoPoint = geoPoint
+        }
     }
 
     fun setMockSpeedKmh(speedKmh: Int) {
@@ -54,61 +53,61 @@ object MockLocationProvider {
     }
 
     fun setMockLocation() {
+        setMockLocationHandler.removeCallbacks(repeatRunnable)
         val context = contextRef?.get() ?: return
-        val locationManager = locationManager ?: run {
-            context.getSystemService(AppCompatActivity.LOCATION_SERVICE) as LocationManager
+        
+        if (locationManager == null) {
+            locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+            try {
+                setupLocationProviders(locationManager!!)
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to setup location providers", e)
+            }
         }
+
+        val lm = locationManager ?: return
 
         mockGeoPoint?.let { geoPoint ->
             try {
-                setupLocationProviders(locationManager)
-
                 val mockLocation = createMockLocation(geoPoint)
-                locationManager.setTestProviderLocation(LocationManager.GPS_PROVIDER, mockLocation)
-                locationManager.setTestProviderLocation(LocationManager.NETWORK_PROVIDER, mockLocation)
+                lm.setTestProviderLocation(LocationManager.GPS_PROVIDER, mockLocation)
+                lm.setTestProviderLocation(LocationManager.NETWORK_PROVIDER, mockLocation)
 
                 noPermissionActionSent = false
-                if (mockLocation.speed < 1) {
-                    setMockLocationHandler.postDelayed(repeatRunnable, 500)
+                if (mockLocation.speed < 1f) {
+                    setMockLocationHandler.postDelayed(repeatRunnable, 1000)
                 }
             } catch (e: SecurityException) {
                 handleSecurityException(context)
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to set mock location", e)
             }
         }
     }
 
     @SuppressLint("WrongConstant") // No ProviderProperties below API 31, int values passed
     private fun setupLocationProviders(locationManager: LocationManager) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) { // API level 31
-            // Use new ProviderProperties constants
-            locationManager.addTestProvider(
-                LocationManager.GPS_PROVIDER,
-                false, false, false, false, true, true, true,
-                ProviderProperties.POWER_USAGE_LOW, ProviderProperties.ACCURACY_FINE
-            )
-            locationManager.setTestProviderEnabled(LocationManager.GPS_PROVIDER, true)
-
-            locationManager.addTestProvider(
-                LocationManager.NETWORK_PROVIDER,
-                false, false, false, false, true, true, true,
-                ProviderProperties.POWER_USAGE_LOW, ProviderProperties.ACCURACY_FINE
-            )
-            locationManager.setTestProviderEnabled(LocationManager.NETWORK_PROVIDER, false)
-        } else {
-            // API level 30 or lower
-            locationManager.addTestProvider(
-                LocationManager.GPS_PROVIDER,
-                false, false, false, false, true, true, true,
-                1, 1
-            )
-            locationManager.setTestProviderEnabled(LocationManager.GPS_PROVIDER, true)
-
-            locationManager.addTestProvider(
-                LocationManager.NETWORK_PROVIDER,
-                false, false, false, false, true, true, true,
-                1, 1
-            )
-            locationManager.setTestProviderEnabled(LocationManager.NETWORK_PROVIDER, false)
+        listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER).forEach { provider ->
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) { // API level 31
+                    // Use new ProviderProperties constants
+                    locationManager.addTestProvider(
+                        provider,
+                        false, false, false, false, true, true, true,
+                        ProviderProperties.POWER_USAGE_LOW, ProviderProperties.ACCURACY_FINE
+                    )
+                } else {
+                    // API level 30 or lower
+                    locationManager.addTestProvider(
+                        provider,
+                        false, false, false, false, true, true, true,
+                        1, 1
+                    )
+                }
+                locationManager.setTestProviderEnabled(provider, provider == LocationManager.GPS_PROVIDER)
+            } catch (e: IllegalArgumentException) {
+                Log.w(TAG, "Test provider $provider already exists")
+            }
         }
     }
 
